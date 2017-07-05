@@ -5,7 +5,7 @@ Puppet::Type.type(:user).provide :pw, :parent => Puppet::Provider::NameService::
   desc "User management via `pw` on FreeBSD and DragonFly BSD."
 
   commands :pw => "pw"
-  has_features :manages_homedir, :allows_duplicates, :manages_passwords, :manages_expiry, :manages_shell
+  has_features :manages_homedir, :allows_duplicates, :manages_passwords, :manages_expiry, :manages_shell, :manages_loginclass
 
   defaultfor :operatingsystem => [:freebsd, :dragonfly]
   confine    :operatingsystem => [:freebsd, :dragonfly]
@@ -13,6 +13,7 @@ Puppet::Type.type(:user).provide :pw, :parent => Puppet::Provider::NameService::
   options :home, :flag => "-d", :method => :dir
   options :comment, :method => :gecos
   options :groups, :flag => "-G"
+  options :loginclass, :flag => '-L'
   options :expiry, :method => :expire, :munge => proc { |value|
     value = '0000-00-00' if value == :absent
     value.split("-").reverse.join("-")
@@ -64,6 +65,13 @@ Puppet::Type.type(:user).provide :pw, :parent => Puppet::Provider::NameService::
     self.password = @resource[:password] if @resource[:password]
   end
 
+  def getpwdata(position)
+    userline = `getent passwd #{@resource[:name]}`
+    userdata = userline.chomp.split(':') if userline
+    data = userdata[position] if position < userdata.length 
+    data
+  end
+  
   # use pw to update password hash
   def password=(cryptopw)
     Puppet.debug "change password for user '#{@resource[:name]}' method called with hash '#{cryptopw}'"
@@ -72,12 +80,18 @@ Puppet::Type.type(:user).provide :pw, :parent => Puppet::Provider::NameService::
     stdin.close
     Puppet.debug "finished password for user '#{@resource[:name]}' method called with hash '#{cryptopw}'"
   end
+    
+  def loginclass
+    Puppet.debug "checking login class for user '#{@resource[:name]}' method called"
+    current_loginclass = getpwdata(4)
+    Puppet.debug "finished login class for user '#{@resource[:name]}' method called : '#{current_loginclass}'"
+    current_loginclass
+  end
 
   # get password from /etc/master.passwd
   def password
     Puppet.debug "checking password for user '#{@resource[:name]}' method called"
-    current_passline = `getent passwd #{@resource[:name]}`
-    current_password = current_passline.chomp.split(':')[1] if current_passline
+    current_password = getpwdata(1)
     Puppet.debug "finished password for user '#{@resource[:name]}' method called : '#{current_password}'"
     current_password
   end
