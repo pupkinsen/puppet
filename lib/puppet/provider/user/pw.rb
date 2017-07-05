@@ -66,7 +66,7 @@ Puppet::Type.type(:user).provide :pw, :parent => Puppet::Provider::NameService::
   end
 
   def getpwdata(position)
-    userline = `getent passwd #{@resource[:name]}`
+    userline = `#{command(:pw)} user show #{@resource[:name]}`
     userdata = userline.chomp.split(':') if userline
     data = userdata[position] if position < userdata.length 
     data
